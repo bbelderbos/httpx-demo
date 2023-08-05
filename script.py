@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 from bs4 import BeautifulSoup
 from typing import Union
@@ -27,11 +28,11 @@ def store_links(links: dict[str, list[str]]) -> None:
     Path("links.txt").write_text("\n".join(content))
 
 
-def get_articles_html(articles: list[str]) -> dict[str, str]:
+async def get_articles_html(articles: list[str]) -> dict[str, str]:
     contents = {}
-    with httpx.Client(headers=HEADERS) as client:
+    async with httpx.AsyncClient(headers=HEADERS) as client:
         for art in articles:
-            resp = client.get(art)
+            resp = await client.get(art)
             contents[art] = resp.text
         return contents
 
@@ -46,10 +47,10 @@ def get_links_from_html(content: str) -> set[str]:
     return links
 
 
-def main() -> None:
+async def main() -> None:
     articles = get_article_links(max_num=50)
     links: dict[str, list[str]] = {art: [] for art in articles}
-    contents = get_articles_html(articles)
+    contents = await get_articles_html(articles)
     seen = set()
     for art, content in contents.items():
         art_links = get_links_from_html(content)
@@ -67,4 +68,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
