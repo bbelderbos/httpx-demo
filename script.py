@@ -11,28 +11,41 @@ HEADERS = {
 PYBITES = ("https://pybit.es", "http://pybit.es")
 
 
-def get_article_links():
+def get_article_links(*, max_num=None):
     resp = requests.get(API_URL)
-    resp.raise_for_status()
-    uniq_links = set()
-    for link in [art["link"] for art in resp.json()[:10]]:
-        links = _get_links(link)
-        uniq_links.update(links)
-    Path("links.txt").write_text("\n".join(uniq_links))
+    links = [art["link"] for art in resp.json()]
+    return links[:max_num] if max_num is not None else links
 
 
-def _get_links(url):
-    resp = requests.get(url, headers=HEADERS)
-    if not resp.ok:
-        print("cannot retrieve", url)
-        return set()
-    else:
-        soup = BeautifulSoup(resp.content, "html.parser")
-        links = {
-            link["href"] for link in soup.find_all("a", href=True)
-            if link["href"].startswith(PYBITES)
-        }
-        return links
+def store_links(links):
+    Path("links.txt").write_text("\n".join(links))
 
 
-get_article_links()
+def get_articles_html(articles):
+    for art in articles:
+        resp = requests.get(art, headers=HEADERS)
+        yield resp.content
+
+
+def get_links_from_html(content):
+    soup = BeautifulSoup(content, "html.parser")
+    links = {
+        link["href"]
+        for link in soup.find_all("a", href=True)
+        if link["href"].startswith(PYBITES)
+    }
+    return links
+
+
+def main():
+    articles = get_article_links(max_num=10)
+    links = set(articles)
+    contents = get_articles_html(articles)
+    for content in contents:
+        art_links = get_links_from_html(content)
+        links.update(art_links)
+    store_links(links)
+
+
+if __name__ == "__main__":
+    main()
