@@ -1,6 +1,8 @@
 from pathlib import Path
-import requests
 from bs4 import BeautifulSoup
+from typing import Union
+
+import requests
 
 API_URL = "https://codechalleng.es/api/articles/"
 HEADERS = {
@@ -11,23 +13,29 @@ HEADERS = {
 PYBITES = ("https://pybit.es", "http://pybit.es")
 
 
-def get_article_links(*, max_num=None):
+def get_article_links(*, max_num: Union[int, None] = None) -> list[str]:
     resp = requests.get(API_URL)
     links = [art["link"] for art in resp.json()]
     return links[:max_num] if max_num is not None else links
 
 
-def store_links(links):
-    Path("links.txt").write_text("\n".join(links))
+def store_links(links: dict[str, set[str]]) -> None:
+    content = []
+    for art, urls in sorted(links.items()):
+        for u in sorted(urls):
+            content.append(f"{art},{u}")
+    Path("links.txt").write_text("\n".join(content))
 
 
-def get_articles_html(articles):
+def get_articles_html(articles: list[str]) -> dict[str, str]:
+    contents = {}
     for art in articles:
         resp = requests.get(art, headers=HEADERS)
-        yield resp.content
+        contents[art] = resp.text
+    return contents
 
 
-def get_links_from_html(content):
+def get_links_from_html(content: str) -> set[str]:
     soup = BeautifulSoup(content, "html.parser")
     links = {
         link["href"]
@@ -37,13 +45,13 @@ def get_links_from_html(content):
     return links
 
 
-def main():
-    articles = get_article_links(max_num=10)
-    links = set(articles)
+def main() -> None:
+    articles = get_article_links(max_num=50)
+    links: dict[str, set[str]] = {art: set() for art in articles}
     contents = get_articles_html(articles)
-    for content in contents:
+    for art, content in contents.items():
         art_links = get_links_from_html(content)
-        links.update(art_links)
+        links[art].update(art_links)
     store_links(links)
 
 
