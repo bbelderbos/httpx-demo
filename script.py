@@ -1,4 +1,3 @@
-import asyncio
 from pathlib import Path
 import httpx
 from bs4 import BeautifulSoup
@@ -12,7 +11,7 @@ HEADERS = {
 PYBITES = ("https://pybit.es", "http://pybit.es")
 
 
-async def get_article_links(*, max_num=None):
+def get_article_links(*, max_num=None):
     resp = httpx.get(API_URL)
     links = [art["link"] for art in resp.json()]
     return links[:max_num] if max_num is not None else links
@@ -22,16 +21,16 @@ def store_links(links):
     Path("links.txt").write_text("\n".join(links))
 
 
-async def get_articles_html(articles):
-    async with httpx.AsyncClient(headers=HEADERS) as client:
+def get_articles_html(articles):
+    with httpx.Client(headers=HEADERS) as client:
         contents = []
         for art in articles:
-            resp = await client.get(art)
+            resp = client.get(art)
             contents.append(resp.content)
         return contents
 
 
-async def get_links_from_html(content):
+def get_links_from_html(content):
     soup = BeautifulSoup(content, "html.parser")
     links = {
         link["href"]
@@ -41,15 +40,15 @@ async def get_links_from_html(content):
     return links
 
 
-async def main():
-    articles = await get_article_links(max_num=10)
+def main():
+    articles = get_article_links(max_num=25)
     links = set(articles)
-    contents = await get_articles_html(articles)
+    contents = get_articles_html(articles)
     for content in contents:
-        art_links = await get_links_from_html(content)
+        art_links = get_links_from_html(content)
         links.update(art_links)
     store_links(links)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
