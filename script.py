@@ -1,6 +1,8 @@
 from pathlib import Path
-import httpx
 from bs4 import BeautifulSoup
+from typing import Union
+
+import httpx
 
 API_URL = "https://codechalleng.es/api/articles/"
 HEADERS = {
@@ -11,26 +13,30 @@ HEADERS = {
 PYBITES = ("https://pybit.es", "http://pybit.es")
 
 
-def get_article_links(*, max_num=None):
+def get_article_links(*, max_num: Union[int, None] = None) -> list[str]:
     resp = httpx.get(API_URL)
     links = [art["link"] for art in resp.json()]
     return links[:max_num] if max_num is not None else links
 
 
-def store_links(links):
-    Path("links.txt").write_text("\n".join(links))
+def store_links(links: dict[str, list[str]]) -> None:
+    content = []
+    for art, urls in sorted(links.items()):
+        for u in sorted(urls):
+            content.append(f"{art},{u}")
+    Path("links.txt").write_text("\n".join(content))
 
 
-def get_articles_html(articles):
+def get_articles_html(articles: list[str]) -> dict[str, str]:
+    contents = {}
     with httpx.Client(headers=HEADERS) as client:
-        contents = []
         for art in articles:
             resp = client.get(art)
-            contents.append(resp.content)
+            contents[art] = resp.text
         return contents
 
 
-def get_links_from_html(content):
+def get_links_from_html(content: str) -> set[str]:
     soup = BeautifulSoup(content, "html.parser")
     links = {
         link["href"]
@@ -40,13 +46,23 @@ def get_links_from_html(content):
     return links
 
 
-def main():
-    articles = get_article_links(max_num=25)
-    links = set(articles)
+def main() -> None:
+    articles = get_article_links(max_num=50)
+    links: dict[str, list[str]] = {art: [] for art in articles}
     contents = get_articles_html(articles)
-    for content in contents:
+    seen = set()
+    for art, content in contents.items():
         art_links = get_links_from_html(content)
-        links.update(art_links)
+
+        new_art_links = []
+        for al in art_links:
+            if al in seen:
+                continue
+            seen.add(al)
+            new_art_links.append(al)
+
+        links[art].extend(new_art_links)
+
     store_links(links)
 
 
