@@ -19,7 +19,7 @@ def get_article_links(*, max_num: Union[int, None] = None) -> list[str]:
     return links[:max_num] if max_num is not None else links
 
 
-def store_links(links: dict[str, set[str]]) -> None:
+def store_links(links: dict[str, list[str]]) -> None:
     content = []
     for art, urls in sorted(links.items()):
         for u in sorted(urls):
@@ -47,11 +47,21 @@ def get_links_from_html(content: str) -> set[str]:
 
 def main() -> None:
     articles = get_article_links(max_num=50)
-    links: dict[str, set[str]] = {art: set() for art in articles}
+    links: dict[str, list[str]] = {art: [] for art in articles}
     contents = get_articles_html(articles)
+    seen = set()
     for art, content in contents.items():
         art_links = get_links_from_html(content)
-        links[art].update(art_links)
+
+        new_art_links = []
+        for al in art_links:
+            if al in seen:
+                continue
+            seen.add(al)
+            new_art_links.append(al)
+
+        links[art].extend(new_art_links)
+
     store_links(links)
 
 
